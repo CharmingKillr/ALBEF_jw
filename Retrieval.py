@@ -1,6 +1,7 @@
 import argparse
 import os
-import ruamel_yaml as yaml
+#import ruamel_yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import random
 import time
@@ -9,11 +10,16 @@ import json
 from pathlib import Path
 
 import torch
+
+import torch_npu
+from torch_npu.contrib import transfer_to_npu
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from torch.utils.data import DataLoader
+import torch_npu.npu
 
 from models.model_retrieval import ALBEF
 from models.vit import interpolate_pos_embed
@@ -39,24 +45,37 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
     warmup_iterations = warmup_steps*step_size  
     
     for i,(image, text, idx) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        image = image.to(device,non_blocking=True)   
-        idx = idx.to(device,non_blocking=True)   
-        text_input = tokenizer(text, padding='longest', max_length=30, return_tensors="pt").to(device)  
+        if args.distributed:
+            image = image.to(device,non_blocking=True).float()
+            idx = idx.to(device,non_blocking=True).float()
+        else:
+            image = image.to(device,non_blocking=True)
+            idx = idx.to(device,non_blocking=True)
+        text_input = tokenizer(text, padding='longest', max_length=30, return_tensors="pt").to(device)
+        
+        if args.distributed:
+            text_input["input_ids"] = text_input["input_ids"].to(device).int()
+            text_input["attention_mask"] = text_input["attention_mask"].to(device).float()
             
         if epoch>0 or not config['warm_up']:
             alpha = config['alpha']
         else:
             alpha = config['alpha']*min(1,i/len(data_loader))
 
-        loss_ita, loss_itm = model(image, text_input,alpha=alpha, idx=idx)                  
+        loss_ita, loss_itm = model(image, text_input, alpha=alpha, idx=idx)                  
         loss = loss_ita + loss_itm
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
         
-        metric_logger.update(loss_itm=loss_itm.item())
-        metric_logger.update(loss_ita=loss_ita.item())
+        if args.distributed:
+            metric_logger.update(loss_itm=loss_itm.float().item())
+            metric_logger.update(loss_ita=loss_ita.float().item())
+        else:
+            metric_logger.update(loss_itm=loss_itm.item())
+            metric_logger.update(loss_ita=loss_ita.item())
+            
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         if epoch==0 and i%step_size==0 and i<=warmup_iterations: 
             scheduler.step(i//step_size)         
@@ -87,7 +106,12 @@ def evaluation(model, data_loader, tokenizer, device, config):
     text_atts = []
     for i in range(0, num_text, text_bs):
         text = texts[i: min(num_text, i+text_bs)]
-        text_input = tokenizer(text, padding='max_length', truncation=True, max_length=30, return_tensors="pt").to(device) 
+        text_input = tokenizer(text, padding='max_length', truncation=True, max_length=30, return_tensors="pt").to(device)
+
+        if args.distributed:
+            text_input["input_ids"] = text_input["input_ids"].to(device).int()
+            text_input["attention_mask"] = text_input["attention_mask"].to(device).float()
+
         text_output = model.text_encoder(text_input.input_ids, attention_mask = text_input.attention_mask, mode='text')  
         text_feat = text_output.last_hidden_state
         text_embed = F.normalize(model.text_proj(text_feat[:,0,:]))
@@ -101,7 +125,10 @@ def evaluation(model, data_loader, tokenizer, device, config):
     image_feats = []
     image_embeds = []
     for image, img_id in data_loader: 
-        image = image.to(device) 
+        if args.distributed:
+            image = image.to(device).float()
+        else:
+            image = image.to(device)
         image_feat = model.visual_encoder(image)        
         image_embed = model.vision_proj(image_feat[:,0,:])            
         image_embed = F.normalize(image_embed,dim=-1)      
@@ -222,9 +249,24 @@ def itm_eval(scores_i2t, scores_t2i, txt2img, img2txt):
 
 
 def main(args, config):
-    utils.init_distributed_mode(args)    
     
-    device = torch.device(args.device)
+    utils.init_distributed_mode_hccl(args)    
+
+
+    # with open('/data/jw/projects/ALBEF_jw/configs/config_device.json', 'r') as f:
+    #     device_config = json.load(f)
+    
+    # device_id = device_config[str(local_rank)]['device']
+
+
+    device = torch.device(f'{args.device}:{args.gpu}')
+
+
+    #utils.init_distributed_mode(args)    
+    
+    #device = torch.device(args.device)
+    #device = torch.device(f'cuda:{args.gpu_id}' if torch.cuda.is_available() else 'cpu')
+    #torch_npu.npu.set_device(args.gpu_id)
 
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
@@ -358,22 +400,28 @@ def main(args, config):
             
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()     
-    parser.add_argument('--config', default='./configs/Retrieval_flickr.yaml')
-    parser.add_argument('--output_dir', default='output/Retrieval_flickr')        
-    parser.add_argument('--checkpoint', default='')   
-    parser.add_argument('--text_encoder', default='bert-base-uncased')
+    parser.add_argument('--config', default='/data/jw/projects/ALBEF_jw/configs/Retrieval_flickr.yaml')
+    parser.add_argument('--output_dir', default='/data/jw/projects/ALBEF_jw/output/Retrieval_flickr')        
+    parser.add_argument('--checkpoint', default='/data/jw/dataset/weights/ALBEF_pre_weights/ALBEF.pth')   
+    parser.add_argument('--text_encoder', default='/data/jw/huggingfacemodel/bert-base-uncased')
     parser.add_argument('--evaluate', action='store_true')
-    parser.add_argument('--device', default='cuda')
+    parser.add_argument('--device', default='npu')
+    #parser.add_argument('--gpu_id', default=3, type=int)
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')    
+    parser.add_argument('--world_size', default=4, type=int, help='number of distributed processes')    
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--distributed', default=True, type=bool)
     args = parser.parse_args()
 
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
+
+    yaml = YAML(typ='rt')
+
+    with open(args.config, 'r') as f:
+        config = yaml.load(f)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-        
-    yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))    
+
+    with open(os.path.join(args.output_dir, 'config.yaml'), 'w') as f:
+        yaml.dump(config, f)
     
     main(args, config)
