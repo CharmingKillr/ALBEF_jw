@@ -11,7 +11,8 @@ class vqa_dataset(Dataset):
         self.split = split        
         self.ann = []
         for f in ann_file:
-            self.ann += json.load(open(f,'r'))
+            with open(f, 'r') as file:
+                self.ann += json.load(file)
 
         self.transform = transform
         self.vqa_root = vqa_root
@@ -21,7 +22,9 @@ class vqa_dataset(Dataset):
         
         if split=='test':
             self.max_ques_words = 50 # do not limit question length during test
-            self.answer_list = json.load(open(answer_list,'r'))    
+            with open(answer_list,'r') as f:
+                self.answer_list = json.load(f)
+        
                 
         
     def __len__(self):

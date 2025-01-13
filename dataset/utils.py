@@ -110,7 +110,8 @@ def save_result(result, result_dir, filename, is_json=True, is_list=True):
     if is_json:
         result_file = os.path.join(result_dir, '%s_rank%d.json'%(filename,utils.get_rank()))
         final_result_file = os.path.join(result_dir, '%s.json'%filename)
-        json.dump(result,open(result_file,'w'))
+        with open(result_file,'w') as f:
+            json.dump(result,f)
     else:
         result_file = os.path.join(result_dir, '%s_rank%d.pth'%(filename,utils.get_rank()))
         final_result_file = os.path.join(result_dir, '%s.pth'%filename)
@@ -127,7 +128,8 @@ def save_result(result, result_dir, filename, is_json=True, is_list=True):
         for rank in range(utils.get_world_size()):
             if is_json:
                 result_file = os.path.join(result_dir, '%s_rank%d.json'%(filename,rank))
-                res = json.load(open(result_file,'r'))
+                with open(result_file,'r') as f:
+                    res = json.load(f)
             else:
                 result_file = os.path.join(result_dir, '%s_rank%d.pth'%(filename,rank))
                 res = torch.load(result_file)            
@@ -135,8 +137,9 @@ def save_result(result, result_dir, filename, is_json=True, is_list=True):
                 result += res
             else:
                 result.update(res)
-        if is_json:                  
-            json.dump(result,open(final_result_file,'w'))   
+        if is_json:
+            with open(final_result_file,'w') as f:
+                json.dump(result,f)                     
         else:            
             torch.save(result,final_result_file)     
         

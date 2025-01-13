@@ -7,7 +7,8 @@ from dataset.utils import pre_caption
 
 class ve_dataset(Dataset):
     def __init__(self, ann_file, transform, image_root, max_words=30):        
-        self.ann = json.load(open(ann_file,'r'))
+        with open(ann_file, 'r') as file:
+            self.ann = json.load(file)
         self.transform = transform
         self.image_root = image_root
         self.max_words = max_words

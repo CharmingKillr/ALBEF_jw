@@ -1,13 +1,13 @@
-train_file: ['data/refcoco+_train.json']
-test_file: ['data/refcoco+_val.json','data/refcoco+_test.json']
+train_file: ['/data/jw/projects/ALBEF_jw/data/official/refcoco+_train.json']
+test_file: ['/data/jw/projects/ALBEF_jw/data/official/refcoco+_val.json','/data/jw/projects/ALBEF_jw/data/official/refcoco+_test.json']
 
-refcoco_data: 'data'
-det_file: 'data/refcoco+/dets.json'            
-coco_file: 'data/refcoco+/cocos.json'    
+refcoco_data: '/data/jw/projects/ALBEF_jw/data'
+det_file: '/data/jw/projects/ALBEF_jw/data/refcoco+/dets.json'            
+coco_file: '/data/jw/projects/ALBEF_jw/data/refcoco+/cocos.json'    
 
-image_root: '/export/share/datasets/vision/coco/images/'
+image_root: '/data/jw/dataset/'
 
-bert_config: 'configs/config_bert.json'
+bert_config: '/data/jw/projects/ALBEF_jw/configs/config_bert.json'
 
 image_res: 384
 batch_size: 32

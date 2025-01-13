@@ -1,0 +1,6 @@
+{"train_lr": "0.0000", "train_loss": "0.5879", "val_acc": "0.8018", "test_acc": "0.8002", "epoch": 0}
+{"train_lr": "0.0000", "train_loss": "0.4453", "val_acc": "0.8041", "test_acc": "0.8064", "epoch": 1}
+{"train_lr": "0.0000", "train_loss": "0.3699", "val_acc": "0.8055", "test_acc": "0.8078", "epoch": 2}
+{"train_lr": "0.0000", "train_loss": "0.3062", "val_acc": "0.8062", "test_acc": "0.8073", "epoch": 3}
+{"train_lr": "0.0000", "train_loss": "0.2644", "val_acc": "0.8055", "test_acc": "0.8076", "epoch": 4}
+best epoch: 3

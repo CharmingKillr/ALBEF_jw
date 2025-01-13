@@ -1,0 +1,5 @@
+{"train_lr": "0.000", "train_loss_itm": "0.438", "train_loss_ita": "7.423", "val_d": 0.5850757364557198, "testA_d": 0.6547327977645826, "testB_d": 0.462262221313152, "epoch": 0}
+{"train_lr": "0.000", "train_loss_itm": "0.408", "train_loss_ita": "7.453", "val_d": 0.5834030294582288, "testA_d": 0.6552567237163814, "testB_d": 0.46492125178973204, "epoch": 1}
+{"train_lr": "0.000", "train_loss_itm": "0.386", "train_loss_ita": "7.238", "val_d": 0.5830313167921197, "testA_d": 0.659098847362906, "testB_d": 0.46758028226631215, "epoch": 2}
+{"train_lr": "0.000", "train_loss_itm": "0.370", "train_loss_ita": "7.108", "val_d": 0.579407118297556, "testA_d": 0.653510303877052, "testB_d": 0.4651257925956228, "epoch": 3}
+{"train_lr": "0.000", "train_loss_itm": "0.361", "train_loss_ita": "7.034", "val_d": 0.5818232506272651, "testA_d": 0.6603213412504366, "testB_d": 0.4653303334015136, "epoch": 4}

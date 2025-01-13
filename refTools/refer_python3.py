@@ -58,11 +58,16 @@ class REFER:
 		ref_file = osp.join(self.DATA_DIR, 'refs('+splitBy+').p')
 		self.data = {}
 		self.data['dataset'] = dataset
-		self.data['refs'] = pickle.load(open(ref_file, 'rb'))
+		
+		with open(ref_file, 'rb') as f:
+			self.data['refs'] = pickle.load(f)
 
 		# load annotations from data/dataset/instances.json
 		instances_file = osp.join(self.DATA_DIR, 'instances.json')
-		instances = json.load(open(instances_file, 'r'))
+		
+		with open(instances_file, 'r') as f:
+			instances = json.load(f)
+
 		self.data['images'] = instances['images']
 		self.data['annotations'] = instances['annotations']
 		self.data['categories'] = instances['categories']

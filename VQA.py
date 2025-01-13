@@ -1,6 +1,7 @@
 import argparse
 import os
-import ruamel_yaml as yaml
+# import ruamel_yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import random
 import time
@@ -9,6 +10,10 @@ import json
 from pathlib import Path
 
 import torch
+
+import torch_npu
+from torch_npu.contrib import transfer_to_npu
+
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
@@ -55,8 +60,12 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
-        
-        metric_logger.update(loss=loss.item())
+
+        if args.distributed:
+            metric_logger.update(loss=loss.float().item())
+        else:
+            metric_logger.update(loss=loss.item())
+
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
         
         if epoch==0 and i%step_size==0 and i<=warmup_iterations: 
@@ -99,10 +108,10 @@ def evaluation(model, data_loader, tokenizer, device, config) :
 
 
 def main(args, config):
-    utils.init_distributed_mode(args)    
+    utils.init_distributed_mode_hccl(args)    
     
-    device = torch.device(args.device)
-
+    # device = torch.device(args.device)
+    device = torch.device(f'{args.device}:{args.gpu}')
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -235,26 +244,31 @@ def main(args, config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', default='./configs/VQA.yaml') 
-    parser.add_argument('--checkpoint', default='') 
-    parser.add_argument('--output_dir', default='output/vqa')
+    parser.add_argument('--config', default='/data/jw/projects/ALBEF_jw/configs/VQA.yaml') 
+    parser.add_argument('--checkpoint', default='/data/jw/dataset/weights/ALBEF_pre_weights/ALBEF.pth') 
+    parser.add_argument('--output_dir', default='/data/jw/projects/ALBEF_jw/output/vqa')
     parser.add_argument('--evaluate', action='store_true')    
-    parser.add_argument('--text_encoder', default='bert-base-uncased')
-    parser.add_argument('--text_decoder', default='bert-base-uncased')
-    parser.add_argument('--device', default='cuda')
+    parser.add_argument('--text_encoder', default='/data/jw/huggingfacemodel/bert-base-uncased')
+    parser.add_argument('--text_decoder', default='/data/jw/huggingfacemodel/bert-base-uncased')
+    parser.add_argument('--device', default='npu')
     parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')    
+    parser.add_argument('--world_size', default=4, type=int, help='number of distributed processes')    
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--distributed', default=True, type=bool)
     args = parser.parse_args()
 
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
-
+    yaml = YAML(typ='rt')
+    
+    with open(args.config, 'r') as f:
+        config = yaml.load(f)
+    
     args.result_dir = os.path.join(args.output_dir, 'result')
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     Path(args.result_dir).mkdir(parents=True, exist_ok=True)
-        
-    yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))    
+    
+    with open(os.path.join(args.output_dir, 'config.yaml'), 'w') as f:
+        yaml.dump(config, f)
+ 
     
     main(args, config)

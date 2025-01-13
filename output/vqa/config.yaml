@@ -1,0 +1,31 @@
+train_file: [/data/jw/projects/ALBEF_jw/data/official/vqa_train.json, /data/jw/projects/ALBEF_jw/data/official/vqa_val.json,
+  /data/jw/projects/ALBEF_jw/data/official/vg_qa.json]
+test_file: [/data/jw/projects/ALBEF_jw/data/official/vqa_test.json]
+answer_list: /data/jw/projects/ALBEF_jw/data/official/answer_list.json
+
+vqa_root: /data/jw/dataset   #train2014/
+vg_root: /data/jw/dataset/Visual-genome    #image/
+
+image_res: 384
+batch_size_train: 32
+batch_size_test: 16
+k_test: 128
+
+alpha: 0.4
+distill: true
+warm_up: true
+
+eos: '[SEP]'
+
+bert_config: /data/jw/projects/ALBEF_jw/configs/config_bert.json
+
+optimizer: {opt: adamW, lr: 2e-5, weight_decay: 0.02}
+schedular: {sched: cosine, lr: 2e-5, epochs: 8, min_lr: 1e-6, decay_rate: 1, warmup_lr: 1e-5,
+  warmup_epochs: 4, cooldown_epochs: 0}
+
+
+
+
+
+
+
